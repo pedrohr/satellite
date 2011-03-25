@@ -1,0 +1,13 @@
+# Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
+
+one:
+  name: 
+  address: 
+  phone: 1
+  occupation: 
+
+two:
+  name: 
+  address: 
+  phone: 1
+  occupation: 
