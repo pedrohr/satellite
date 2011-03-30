@@ -1,10 +1,10 @@
 class CreateCandidates < ActiveRecord::Migration
   def self.up
     create_table :candidates do |t|
-      t.String :name
-      t.String :address
+      t.string :name
+      t.string :address
       t.integer :phone
-      t.String :occupation
+      t.string :occupation
 
       t.timestamps
     end
