@@ -60,6 +60,13 @@ class Teleport_receiver
 end
 
 class CandidatesController < ApplicationController
+  def teleport_save
+    key = Teleport_receiver.convert_hash(params, Candidate.new)
+    # search by what?
+
+    render :nothing => true
+  end
+
   def teleport_destroy
     key = Teleport_receiver.convert_hash(params, Candidate.new)
     @candidate = Candidate.find(:first, :conditions => key)
