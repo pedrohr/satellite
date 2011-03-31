@@ -5,6 +5,7 @@ Sat1::Application.routes.draw do
   #TODO: take this to a config file
   post '/' => "candidates#teleport_create"
   delete '/' => "candidates#teleport_destroy"
+  put '/' => "candidates#teleport_save"
 
   # The priority is based upon order of creation:
   # first created -> highest priority.
