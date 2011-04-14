@@ -18,7 +18,7 @@ end
 
 class Teleport_receiver
   #hash: {satelite_attribute => teleport_attribute}
-  #TODO: this mapping has to be created automatically
+  #TODO: this mapping should be created automatically
   @@mapping = {
     "occupation" => "occupation",
     "address" => "address",
@@ -33,16 +33,20 @@ class Teleport_receiver
     return @@mapping[val]
   end
 
-  def self.get_search_key(params)
-    return {@@key => params["person"][@@mapping[@@key]]}
-  end
-
+  #Insert 'params' hash into some target object attributes
+  #Ex.: All the attributes of the target object will be 
+  #     filled with 'Person' under the mapping of 
+  #     attributes
   def self.convert_params(params, target)
-    info = params["person"]
+    info = params["Person"]
     hash = target.attributes
+
     hash.each do |key,value|
       target[key] = info[mapper(key)]
     end
+
+    target["__key"] = params["Person"]["__key"]
+    
     return target
   end
 
@@ -61,15 +65,22 @@ end
 
 class CandidatesController < ApplicationController
   def teleport_save
-    key = Teleport_receiver.convert_hash(params, Candidate.new)
-    # search by what?
+    @candidate = Candidate.find(:first, :conditions => {:__key => params["__key"]})
+    
+    unless @candidate == nil
+      params["update"].each{ |k,v|
+        @candidate[k] = v
+      }
+      @candidate["__key"] = params["__key"]
+      @candidate.save
+    end
 
     render :nothing => true
   end
 
   def teleport_destroy
-    key = Teleport_receiver.convert_hash(params, Candidate.new)
-    @candidate = Candidate.find(:first, :conditions => key)
+    key = params["Person"]["__key"]
+    @candidate = Candidate.find(:first, :conditions => {:__key => key})
     @candidate.destroy unless @candidate == nil
 
     render :nothing => true
