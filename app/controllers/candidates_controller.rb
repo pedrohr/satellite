@@ -71,7 +71,6 @@ class CandidatesController < ApplicationController
       params["update"].each{ |k,v|
         @candidate[k] = v
       }
-      @candidate["__key"] = params["__key"]
       @candidate.save
     end
 
