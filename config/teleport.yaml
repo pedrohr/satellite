@@ -1,0 +1,11 @@
+entity: Person
+attributes:
+    - source:   name
+      dest:   name
+    - source:   occupation
+      dest:   occupation
+    - source:   address
+      dest:   address
+    - source:   phone
+      dest:   phone
+model: Candidate
