@@ -9,3 +9,4 @@ attributes:
     - source:   phone
       dest:   phone
 model: Candidate
+attr_names_threshold: 2
