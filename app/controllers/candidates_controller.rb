@@ -1,4 +1,4 @@
-require "gem.rb"
+require "teleport.rb"
 
 class CandidatesController < ApplicationController
   # GET /candidates

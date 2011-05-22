@@ -17,7 +17,7 @@ class Logger
 end
 
 class Teleport_receiver
-  @@config = YAML::load(File.open(RAILS_ROOT+'/config/teleport.yaml')) 
+  @@config = YAML::load(File.open(RAILS_ROOT+'/config/teleport.yml')) 
 
   #hash: {satelite_attribute => teleport_attribute}
   #TODO: this mapping should be created automatically
