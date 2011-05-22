@@ -1,4 +1,7 @@
 require "yaml"
+require "text"
+
+require 'pp'
 
 class Logger
   def self.success
@@ -46,8 +49,16 @@ class Teleport_receiver
   end
 
   #TODO: handle nil cases
-  def self.mapper(val)
-    return @@mapping[val]
+  def self.mapper(val, info)
+    default = @@mapping[val]
+    return default unless (! info.has_key? default)
+
+    # levenshtein distance to attributes' names
+    info.each_pair do |k,v|
+      return k if Text::Levenshtein::distance(k,val) <= @@config["attr_names_threshold"]
+    end
+
+    return nil #TODO: insert default route (by config file) when none heuristics find a result
   end
 
   #Insert 'params' hash into some target object attributes
@@ -60,7 +71,7 @@ class Teleport_receiver
     hash = target.attributes
 
     hash.each do |key,value|
-      target[key] = info[mapper(key)]
+      target[key] = info[mapper(key, info)]
     end
 
     target["__key"] = params[entity]["__key"]
