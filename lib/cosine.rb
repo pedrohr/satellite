@@ -24,7 +24,7 @@ def cosine_distance(st1, st2)
   sum_compare = 0
   dot_prod = 0
 
-  #compute the dot product and the 'squared' sum of the vector base
+  #compute the dot product and the squared sum of the vector base
   base.each_pair do |key, value|
     sum_base += value * value
     image = compare[key]
