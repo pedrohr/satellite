@@ -28,13 +28,18 @@ class Teleport
   @@mapping = {
     # TODO: load this from YAML config file
     # if user dont set the map on the yaml file, cosine distance will be used
+    # central => satellite
     "occupation" => "occupation",
     "address" => "address",
     "name" => "name",
-    "phone" => "phone",
-    "__key" => "__key",
+    "phone" => "phone"}
+
+  @@default_hard_links = {
+    "__key" => "__key", #important!
     "created_at" => "created_at",
     "updated_at" => "updated_at"}
+
+  @@black_list = ["id"]
 
   #calculates the cosine distance between two strings st1 and st2
   def self.cosine_distance(freq1, freq2)
@@ -131,63 +136,59 @@ class Teleport
     save_frequency_vectors attributes
   end
 
-  def self.mapper(val, info)
-    default = @@mapping[val]
-    return default unless (!info.has_key? default)
+#  def self.mapper(val, info)
+#    default = @@mapping[val]
+#    return default unless (!info.has_key? default)
 
     # TODO: make this a static class varible
-    freq_vectors = load_frequency_vectors
-    cos_distance = {}
+#    freq_vectors = load_frequency_vectors
+#    cos_distance = {}
 
     # Cleaning info for mapping process
-    infod = info.dup
-    ["__key","updated_at","created_at","id"].each do |k|
-      infod.delete(k)
-    end
+#    infod = info.dup
+#    ["__key","updated_at","created_at","id"].each do |k|
+#      infod.delete(k)
+#    end
 
     # levenshtein distance to attributes' names
-    infod.each_pair do |k,v|
-      return k if Text::Levenshtein::distance(k,val) <= @@config["attr_names_threshold"]
+#    infod.each_pair do |k,v|
+#      return k if Text::Levenshtein::distance(k,val) <= @@config["attr_names_threshold"]
 
       # Frequency vector of a value v of info
-      freq1 = gen_freq_vector(v)
-      cos_distance[k] = cosine_distance(freq_vectors[val],freq1)
-    end
+#      freq1 = gen_freq_vector(v)
+#      cos_distance[k] = cosine_distance(freq_vectors[val],freq1)
+#    end
 
-    pp "-------------------------"
-    cos_distance.each_pair do |k,v|
-      pp "#{info[k]} -> #{val}, distance: #{v}"
-    end
-    pp "-------------------------"
+#    pp "-------------------------"
+#    cos_distance.each_pair do |k,v|
+#      pp "#{info[k]} -> #{val}, distance: #{v}"
+#    end
+#    pp "-------------------------"
 
-    biggest = cos_distance.max {|x,y| x.last <=> y.last}
-    return nil unless @@config["cosine_threshold"] < biggest.last
+#    biggest = cos_distance.max {|x,y| x.last <=> y.last}
+#    return nil unless @@config["cosine_threshold"] < biggest.last
 
-    pp "-------------------------"
-    pp "#{info[biggest.first]} -> #{val}, distance: #{biggest.last}"
-    pp "-------------------------"
+#    pp "-------------------------"
+#    pp "#{info[biggest.first]} -> #{val}, distance: #{biggest.last}"
+#    pp "-------------------------"
 
     # TODO: optimize and 'refactorize'
-    freq_vectors[val] = freq_vectors[val].merge(gen_freq_vector(info[biggest.first])){|k,a,b| a+b}
+#    freq_vectors[val] = freq_vectors[val].merge(gen_freq_vector(info[biggest.first])){|k,a,b| a+b}
 
-    save_frequency_vectors(freq_vectors)
+#    save_frequency_vectors(freq_vectors)
 
-    return biggest.first #TODO: insert default route (by config file) when none heuristics find a result
-  end
+#    return biggest.first #TODO: insert default route (by config file) when none heuristics find a result
+#  end
 
-  def self.load_comparison_structures(infod)
+  def self.mapper(infod)
     freq_vectors = load_frequency_vectors
 
-    # load hard links to avoid unecessary comparisons
-
     info = infod.dup
-    ["__key","updated_at","created_at","id"].each do |k|
-      info.delete(k)
-    end
 
     mapping = {}
+    # TODO: load hard links to avoid unecessary comparisons
 
-    #removing defaults and eidt-distance matchings
+    #removing defaults and edit-distance matchings
     freq_vectors.each_pair do |k,v|
       default = @@mapping[k]
       if info.has_key? default
@@ -203,17 +204,16 @@ class Teleport
           end
         end
       end
-      
       #write hard link
     end
 
-    #building full-connected graph
+    #building full-connected weighted graph
     comparisons = {}
     freq_vectors.each_pair do |k,v|
       comparisons[k] = {}
       mapping[k] = {}
       info.each_pair do |ik, iv|
-        comparisons[k][ik] = cosine_distance(gen_freq_vector(iv), v)
+        comparisons[k][ik] = cosine_distance(gen_freq_vector(iv), v) unless iv.empty?
       end
     end
 
@@ -221,6 +221,13 @@ class Teleport
       #taking the highest weight edge
       greatest = ["","",0]
       comparisons.each do |attr|
+        # no more satellite attributes to use
+        if attr.last.empty?
+          greatest[0] = attr.first
+          greatest[1] = nil
+          break
+        end
+
         big = attr.last.max {|x,y| x.last <=> y.last}
         if greatest.last <= big.last
           greatest[0] = attr.first #ugly for Ruby, I know!
@@ -234,7 +241,7 @@ class Teleport
       comparisons.each do |attr|
         attr.last.delete(greatest[1])
       end
-      
+
       mapping[greatest.first] = greatest[1]
 
       if greatest.last > @@config["cosine_threshold"]
@@ -242,20 +249,28 @@ class Teleport
       end
     end
 
-    return(mapping)
+    return mapping
   end
 
-
   def self.convert_params(params, target)
-    entity = get_entity
-    info = params[entity]
-    attribs = target.attributes
+    info = params[get_entity]
 
-    attribs.each do |key,value|
-      target[key] = info[mapper(key, info)]
+    @@black_list.each do |black|
+      info.delete(black)
     end
 
-    target["__key"] = params[entity]["__key"]
+    @@default_hard_links.each do |k,v|
+      target[k] = info[v]
+      info.delete(v)
+    end
+
+    mapping = mapper(info)
+
+    target.attributes.each do |key,value|
+      target[key] = info[mapping[key]] if target[key].nil?
+    end
+
+    pp mapping
     
     return target
   end
@@ -274,8 +289,7 @@ class Teleport
 end
 
 
-
-#TODO: CandidatesController has to be passed as a parameter
+#TODO: 'CandidatesController' has to be passed as a parameter
 # string.camelize.constantize
 class CandidatesController < ApplicationController
   def teleport_save
@@ -284,6 +298,7 @@ class CandidatesController < ApplicationController
     @candidate = model.find(:first, :conditions => {:__key => params["__key"]})
     
     unless @candidate == nil
+      ############### TODO: need a convert_params here !
       params["update"].each do |k,v|
         @candidate[k] = v
       end
@@ -305,6 +320,9 @@ class CandidatesController < ApplicationController
   end
 
   def teleport_create
+    ############################################
+    pp request.inspect
+    ############################################
     model = Teleport.get_model
 
     @candidate = model.new
