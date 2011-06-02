@@ -8,6 +8,7 @@ gem 'rails', '3.0.3'
 # gem 'rails', :git => 'git://github.com/rails/rails.git'
 
 gem 'mysql2', '0.2.7'
+gem 'rake', '0.8.7'
 
 gem 'jquery-rails', '>= 0.2.6'
 
