@@ -1,3 +1,10 @@
+# High-level config
+attr_names_threshold: 2
+cosine_threshold: 0.7
+f_vec_directory: db/teleport
+
+# User-level config
+model: Candidate
 entity: Person
 attributes:
     - source:   name
@@ -8,5 +15,3 @@ attributes:
       dest:   address
     - source:   phone
       dest:   phone
-model: Candidate
-attr_names_threshold: 2
