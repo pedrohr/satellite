@@ -154,6 +154,12 @@ class Teleport
       cos_distance[k] = cosine_distance(freq_vectors[val],freq1)
     end
 
+    pp "-------------------------"
+    cos_distance.each_pair do |k,v|
+      pp "#{info[k]} -> #{val}, distance: #{v}"
+    end
+    pp "-------------------------"
+
     biggest = cos_distance.max {|x,y| x.last <=> y.last}
     return nil unless @@config["cosine_threshold"] < biggest.last
 
@@ -161,7 +167,6 @@ class Teleport
     pp "#{info[biggest.first]} -> #{val}, distance: #{biggest.last}"
     pp "-------------------------"
 
-    # TODO: update freq_vectors in the file
     # TODO: optimize and 'refactorize'
     freq_vectors[val] = freq_vectors[val].merge(gen_freq_vector(info[biggest.first])){|k,a,b| a+b}
 
@@ -170,16 +175,83 @@ class Teleport
     return biggest.first #TODO: insert default route (by config file) when none heuristics find a result
   end
 
-  #Insert 'params' hash into some target object attributes
-  #Ex.: All the attributes of the target object will be 
-  #     filled with 'Person' under the mapping of 
-  #     attributes
+  def self.load_comparison_structures(infod)
+    freq_vectors = load_frequency_vectors
+
+    # load hard links to avoid unecessary comparisons
+
+    info = infod.dup
+    ["__key","updated_at","created_at","id"].each do |k|
+      info.delete(k)
+    end
+
+    mapping = {}
+
+    #removing defaults and eidt-distance matchings
+    freq_vectors.each_pair do |k,v|
+      default = @@mapping[k]
+      if info.has_key? default
+        mapping[k] = default
+        freq_vectors.delete(k)
+        info.delete(default)
+      else
+        info.each_pair do |ik, iv|
+          if Text::Levenshtein::distance(k,ik) <= @@config["attr_names_threshold"]
+            mapping[k] = ik
+            freq_vectors.delete(k)
+            info.delete(ik)
+          end
+        end
+      end
+      
+      #write hard link
+    end
+
+    #building full-connected graph
+    comparisons = {}
+    freq_vectors.each_pair do |k,v|
+      comparisons[k] = {}
+      mapping[k] = {}
+      info.each_pair do |ik, iv|
+        comparisons[k][ik] = cosine_distance(gen_freq_vector(iv), v)
+      end
+    end
+
+    until comparisons.empty? do
+      #taking the highest weight edge
+      greatest = ["","",0]
+      comparisons.each do |attr|
+        big = attr.last.max {|x,y| x.last <=> y.last}
+        if greatest.last <= big.last
+          greatest[0] = attr.first #ugly for Ruby, I know!
+          greatest[1] = big.first
+          greatest[2] = big.last
+        end
+      end
+
+      #deleting all incident edges to the 2-size cluster
+      comparisons.delete(greatest.first)
+      comparisons.each do |attr|
+        attr.last.delete(greatest[1])
+      end
+      
+      mapping[greatest.first] = greatest[1]
+
+      if greatest.last > @@config["cosine_threshold"]
+        #save hard link
+      end
+    end
+
+    return(mapping)
+  end
+
+
   def self.convert_params(params, target)
     entity = get_entity
     info = params[entity]
-    hash = target.attributes
+    attribs = target.attributes
 
-    hash.each do |key,value|
+    attribs.each do |key,value|
       target[key] = info[mapper(key, info)]
     end
 
@@ -200,6 +272,8 @@ class Teleport
     return hash
   end
 end
+
+
 
 #TODO: CandidatesController has to be passed as a parameter
 # string.camelize.constantize
