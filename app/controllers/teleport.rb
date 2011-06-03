@@ -141,50 +141,6 @@ class Teleporter
     save_frequency_vectors attributes
   end
 
-#  def self.mapper(val, info)
-#    default = @@mapping[val]
-#    return default unless (!info.has_key? default)
-
-    # TODO: make this a static class varible
-#    freq_vectors = load_frequency_vectors
-#    cos_distance = {}
-
-    # Cleaning info for mapping process
-#    infod = info.dup
-#    ["__key","updated_at","created_at","id"].each do |k|
-#      infod.delete(k)
-#    end
-
-    # levenshtein distance to attributes' names
-#    infod.each_pair do |k,v|
-#      return k if Text::Levenshtein::distance(k,val) <= @@config["attr_names_threshold"]
-
-      # Frequency vector of a value v of info
-#      freq1 = gen_freq_vector(v)
-#      cos_distance[k] = cosine_distance(freq_vectors[val],freq1)
-#    end
-
-#    pp "-------------------------"
-#    cos_distance.each_pair do |k,v|
-#      pp "#{info[k]} -> #{val}, distance: #{v}"
-#    end
-#    pp "-------------------------"
-
-#    biggest = cos_distance.max {|x,y| x.last <=> y.last}
-#    return nil unless @@config["cosine_threshold"] < biggest.last
-
-#    pp "-------------------------"
-#    pp "#{info[biggest.first]} -> #{val}, distance: #{biggest.last}"
-#    pp "-------------------------"
-
-    # TODO: optimize and 'refactorize'
-#    freq_vectors[val] = freq_vectors[val].merge(gen_freq_vector(info[biggest.first])){|k,a,b| a+b}
-
-#    save_frequency_vectors(freq_vectors)
-
-#    return biggest.first #TODO: insert default route (by config file) when none heuristics find a result
-#  end
-
   def self.mapper(infod)
     freq_vectors = load_frequency_vectors
 
@@ -277,6 +233,16 @@ class Teleporter
       target[key] = info[mapping[key]] if target[key].nil?
     end
 
+    # Updating freq_vectors
+    freq_vectors = load_frequency_vectors
+    mapping.each_pair do |k,v|
+      freq_vectors[k] = freq_vectors[k].merge(gen_freq_vector(info[v])){|key,a,b| a+b} unless info[v].nil?
+    end
+    save_frequency_vectors(freq_vectors)    
+
+    pp freq_vectors
+
+    # TODO: this must go to a (decent) Logger
     pp mapping
     
     return target
@@ -302,14 +268,14 @@ module Teleport
 
     model = Teleporter.get_model
 
-    @candidate = model.find(:first, :conditions => {:__key => params["__key"]})
+    @tuple = model.find(:first, :conditions => {:__key => params["__key"]})
     
-    unless @candidate == nil
+    unless @tuple == nil
       ############### TODO: need a convert_params here !
       params["update"].each do |k,v|
-        @candidate[k] = v
+        @tuple[k] = v
       end
-      @candidate.save
+      @tuple.save
     end
 
     render :nothing => true
@@ -322,8 +288,8 @@ module Teleport
     entity = Teleporter.get_entity
 
     key = params[entity]["__key"]
-    @candidate = model.find(:first, :conditions => {:__key => key})
-    @candidate.destroy unless @candidate == nil
+    @tuple = model.find(:first, :conditions => {:__key => key})
+    @tuple.destroy unless @tuple == nil
 
     render :nothing => true
   end
@@ -333,10 +299,10 @@ module Teleport
 
     model = Teleporter.get_model
 
-    @candidate = model.new
-    Teleporter.convert_object(params, @candidate)
+    @tuple = model.new
+    Teleporter.convert_object(params, @tuple)
 
-    if @candidate.save
+    if @tuple.save
       Logger.success
     else
       Logger.fail
