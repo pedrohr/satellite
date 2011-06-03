@@ -1,7 +1,14 @@
-# High-level config
+# General config
+f_vec_directory: db/teleport
+
+#List of allowed satellites
+satellites:
+    - 127.0.0.1
+    - 192.168.0.2
+
+# Atrribute matching config
 attr_names_threshold: 2
 cosine_threshold: 0.7
-f_vec_directory: db/teleport
 
 # User-level config
 model: Candidate
