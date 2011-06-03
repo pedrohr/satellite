@@ -1,6 +1,9 @@
 require "teleport.rb"
 
 class CandidatesController < ApplicationController
+  class << include Teleport
+  end
+
   # GET /candidates
   # GET /candidates.xml
   def index
