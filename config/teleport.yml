@@ -13,12 +13,12 @@ cosine_threshold: 0.7
 # User-level config
 model: Candidate
 entity: Person
-attributes:
-    - source:   name
-      dest:   name
-    - source:   occupation
-      dest:   occupation
-    - source:   address
-      dest:   address
-    - source:   phone
-      dest:   phone
+default_mapping:
+    - local:   name
+      sat:   name
+    - local:   occupation
+      sat:   occupation
+    - local:   address
+      sat:   address
+    - local:   phone
+      sat:   phone
