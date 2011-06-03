@@ -20,7 +20,7 @@ class Logger
   end
 end
 
-class Teleport
+class Teleporter
   # TODO: try/catch here
   @@config = YAML::load(File.open(Rails.root.to_s+'/config/teleport.yml')) 
 
@@ -40,6 +40,11 @@ class Teleport
     "updated_at" => "updated_at"}
 
   @@black_list = ["id"]
+
+  # this should exists in a middleware like Warden, but I need the remote IP address anyway, so I'd better check for any allowance policy
+  def self.allow_request(ip)
+    @@config["satellites"].include? ip
+  end
 
   #calculates the cosine distance between two strings st1 and st2
   def self.cosine_distance(freq1, freq2)
@@ -249,6 +254,8 @@ class Teleport
       end
     end
 
+    #TODO: update freq_vectors
+
     return mapping
   end
 
@@ -291,9 +298,11 @@ end
 
 #TODO: 'CandidatesController' has to be passed as a parameter
 # string.camelize.constantize
-class CandidatesController < ApplicationController
+module Teleport #CandidatesController < ApplicationController
   def teleport_save
-    model = Teleport.get_model
+    render :nothing => true unless Teleporter.allow_request(request.env["REMOTE_ADDR"])
+
+    model = Teleporter.get_model
 
     @candidate = model.find(:first, :conditions => {:__key => params["__key"]})
     
@@ -309,8 +318,10 @@ class CandidatesController < ApplicationController
   end
   
   def teleport_destroy
-    model = Teleport.get_model
-    entity = Teleport.get_entity
+    render :nothing => true unless Teleporter.allow_request(request.env["REMOTE_ADDR"])
+
+    model = Teleporter.get_model
+    entity = Teleporter.get_entity
 
     key = params[entity]["__key"]
     @candidate = model.find(:first, :conditions => {:__key => key})
@@ -320,13 +331,12 @@ class CandidatesController < ApplicationController
   end
 
   def teleport_create
-    ############################################
-    pp request.inspect
-    ############################################
-    model = Teleport.get_model
+    render :nothing => true unless Teleporter.allow_request(request.env["REMOTE_ADDR"])
+
+    model = Teleporter.get_model
 
     @candidate = model.new
-    Teleport.convert_object(params, @candidate)
+    Teleporter.convert_object(params, @candidate)
 
     if @candidate.save
       Logger.success
