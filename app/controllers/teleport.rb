@@ -296,9 +296,7 @@ class Teleporter
 end
 
 
-#TODO: 'CandidatesController' has to be passed as a parameter
-# string.camelize.constantize
-module Teleport #CandidatesController < ApplicationController
+module Teleport
   def teleport_save
     render :nothing => true unless Teleporter.allow_request(request.env["REMOTE_ADDR"])
 
