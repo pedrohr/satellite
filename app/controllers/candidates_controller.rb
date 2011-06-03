@@ -1,6 +1,7 @@
 require "teleport.rb"
 
 class CandidatesController < ApplicationController
+  # Let's Teleport :)
   class << include Teleport
   end
 
