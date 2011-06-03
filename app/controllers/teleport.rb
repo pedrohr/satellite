@@ -24,22 +24,22 @@ class Teleporter
   # TODO: try/catch here
   @@config = YAML::load(File.open(Rails.root.to_s+'/config/teleport.yml')) 
 
-  #hash: {satelite_attribute => teleport_attribute}
-  @@mapping = {
-    # TODO: load this from YAML config file
-    # if user dont set the map on the yaml file, cosine distance will be used
-    # central => satellite
-    "occupation" => "occupation",
-    "address" => "address",
-    "name" => "name",
-    "phone" => "phone"}
-
   @@default_hard_links = {
     "__key" => "__key", #important!
     "created_at" => "created_at",
     "updated_at" => "updated_at"}
 
   @@black_list = ["id"]
+
+  def self.load_mapping
+    mapping = {}
+    @@config["default_mapping"].each do |map|
+      mapping[map["local"]] = map["sat"]
+    end
+    mapping
+  end
+
+  @@mapping = load_mapping
 
   # this should exists in a middleware like Warden, but I need the remote IP address anyway, so I'd better check for any allowance policy
   def self.allow_request(ip)
@@ -132,7 +132,7 @@ class Teleporter
       end
     end
 
-    # create a frequency vector for every attribute 
+    # create a frequency vector for every attribute
     attributes.each_pair do |k,v|
       freq = gen_freq_vector(v)
       attributes[k] = freq
@@ -210,8 +210,6 @@ class Teleporter
       end
     end
 
-    #TODO: update freq_vectors
-
     return mapping
   end
 
@@ -240,9 +238,7 @@ class Teleporter
     end
     save_frequency_vectors(freq_vectors)    
 
-    pp freq_vectors
-
-    # TODO: this must go to a (decent) Logger
+    # TODO: this must go to for a (decent) Logger
     pp mapping
     
     return target
