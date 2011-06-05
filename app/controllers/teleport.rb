@@ -22,7 +22,7 @@ end
 
 class Teleporter
   # TODO: try/catch here
-  @@config = YAML::load(File.open(Rails.root.to_s+'/config/teleport.yml')) 
+  @@config = YAML::load(File.open(Rails.root.to_s + '/config/teleport.yml')) 
 
   @@default_hard_links = {
     "__key" => "__key", #important!
@@ -76,7 +76,7 @@ class Teleporter
       sum_compare += value * value
     end
 
-    dot_prod/Math.sqrt(sum_base*sum_compare)
+    dot_prod/Math.sqrt(sum_base * sum_compare)
   end
 
   def self.get_model
@@ -225,17 +225,20 @@ class Teleporter
       end
 
       mapping[greatest.first] = greatest[1]
-
-      pp "#{greatest.first} -> #{greatest[1]} with #{greatest[2]}"
+      
+      # TODO: decent Logging
+      puts "#{greatest[0]} => #{greatest[1]} with #{greatest[2]}"
 
       if greatest.last > @@config["cosine_threshold"]
-        pp "To dando merge aqui com: #{greatest.last} > #{@@config["cosine_threshold"]}"
         hard_links.merge!({greatest.first => greatest[1]})
         hlinks_changed = true
       end
     end
 
-    save_hard_links(hard_links, ip) if hlinks_changed
+    if hlinks_changed
+      save_hard_links(hard_links, ip) 
+      puts "Hard-links saved."
+    end
     return mapping
   end
 
@@ -262,28 +265,32 @@ class Teleporter
     mapping.each_pair do |k,v|
       freq_vectors[k] = freq_vectors[k].merge(gen_freq_vector(info[v])){|key,a,b| a+b} unless info[v].nil?
     end
-    save_frequency_vectors(freq_vectors)    
+    save_frequency_vectors(freq_vectors)
 
-    # TODO: this must go to for a (decent) Logger
+    # TODO: this must be handled by a (decent) Logger
     pp mapping
     
     return target
   end
 
-  #TODO: blow this method
-  def self.convert_object(params, object, ip)
-    convert_params(params, object, ip)
-    return object
-  end
+  def self.convert_update(params, ip)
+    convert = {}
+    @@black_list.each do |black|
+      params.delete(black)
+    end
 
-  def self.convert_hash(params, object) #used for update?
-    convert_params(params, object)
-    hash = object.attributes
-    hash.delete_if {|k,v| v == nil}
-    return hash
+    @@default_hard_links.each do |k,v|
+      convert[k] = params[v] unless params[v].nil?
+      params.delete(v)
+    end
+
+    mapper(params, ip).each_pair do |k,v|
+      convert[k] = params[v]
+    end
+
+    return convert
   end
 end
-
 
 module Teleport
   def teleport_save
@@ -294,8 +301,7 @@ module Teleport
     @tuple = model.find(:first, :conditions => {:__key => params["__key"]})
     
     unless @tuple == nil
-      ############### TODO: need a convert_params here !
-      params["update"].each do |k,v|
+      Teleporter.convert_update(params["update"], request.env["REMOTE_ADDR"]).each do |k,v|
         @tuple[k] = v
       end
       @tuple.save
@@ -323,7 +329,7 @@ module Teleport
     model = Teleporter.get_model
 
     @tuple = model.new
-    Teleporter.convert_object(params, @tuple, request.env["REMOTE_ADDR"])
+    Teleporter.convert_params(params, @tuple, request.env["REMOTE_ADDR"])
 
     if @tuple.save
       Logger.success
