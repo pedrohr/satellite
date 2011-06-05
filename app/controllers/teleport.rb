@@ -109,6 +109,19 @@ class Teleporter
     return(freq_vectors)
   end
 
+  def self.load_hard_links(ip)
+    path = "#{Rails.root.to_s}/#{@@config["f_vec_directory"]}/#{get_model.to_s}_#{ip}_hard_links.gz"
+    hard_links = ObjectStore.load path if File.exists?(path)
+    return {} if hard_links.nil?
+    return hard_links
+  end
+
+  def self.save_hard_links(hlinks, ip)
+    path = "#{Rails.root.to_s}/#{@@config["f_vec_directory"]}"
+    Dir.mkdir(path) unless File.directory?(path)
+    ObjectStore.store hlinks, "#{path}/#{get_model.to_s}_#{ip}_hard_links.gz"
+  end
+
   def self.save_frequency_vectors(vectors)
     # TODO: verify consistency of config file
     path = "#{Rails.root.to_s}/#{@@config["f_vec_directory"]}"
@@ -141,15 +154,21 @@ class Teleporter
     save_frequency_vectors attributes
   end
 
-  def self.mapper(infod)
-    freq_vectors = load_frequency_vectors
+  def self.mapper(infod, ip)
+    hard_links = load_hard_links(ip)
+    hlinks_changed = false
 
+    freq_vectors = load_frequency_vectors
     info = infod.dup
 
-    mapping = {}
-    # TODO: load hard links to avoid unecessary comparisons
+    hard_links.each_pair do |k,v|
+      freq_vectors.delete(k)
+      info.delete(v)
+    end
 
-    #removing defaults and edit-distance matchings
+    mapping = hard_links.dup
+
+    #removing default and edit-distance matchings
     freq_vectors.each_pair do |k,v|
       default = @@mapping[k]
       if info.has_key? default
@@ -162,10 +181,12 @@ class Teleporter
             mapping[k] = ik
             freq_vectors.delete(k)
             info.delete(ik)
+            
+            hard_links.merge!({k=>ik})
+            hlinks_changed = true
           end
         end
       end
-      #write hard link
     end
 
     #building full-connected weighted graph
@@ -205,15 +226,20 @@ class Teleporter
 
       mapping[greatest.first] = greatest[1]
 
+      pp "#{greatest.first} -> #{greatest[1]} with #{greatest[2]}"
+
       if greatest.last > @@config["cosine_threshold"]
-        #save hard link
+        pp "To dando merge aqui com: #{greatest.last} > #{@@config["cosine_threshold"]}"
+        hard_links.merge!({greatest.first => greatest[1]})
+        hlinks_changed = true
       end
     end
 
+    save_hard_links(hard_links, ip) if hlinks_changed
     return mapping
   end
 
-  def self.convert_params(params, target)
+  def self.convert_params(params, target, ip)
     info = params[get_entity]
 
     @@black_list.each do |black|
@@ -225,7 +251,7 @@ class Teleporter
       info.delete(v)
     end
 
-    mapping = mapper(info)
+    mapping = mapper(info, ip)
 
     target.attributes.each do |key,value|
       target[key] = info[mapping[key]] if target[key].nil?
@@ -244,12 +270,13 @@ class Teleporter
     return target
   end
 
-  def self.convert_object(params, object)
-    convert_params(params, object)
+  #TODO: blow this method
+  def self.convert_object(params, object, ip)
+    convert_params(params, object, ip)
     return object
   end
 
-  def self.convert_hash(params, object)
+  def self.convert_hash(params, object) #used for update?
     convert_params(params, object)
     hash = object.attributes
     hash.delete_if {|k,v| v == nil}
@@ -296,7 +323,7 @@ module Teleport
     model = Teleporter.get_model
 
     @tuple = model.new
-    Teleporter.convert_object(params, @tuple)
+    Teleporter.convert_object(params, @tuple, request.env["REMOTE_ADDR"])
 
     if @tuple.save
       Logger.success
