@@ -8,7 +8,7 @@ satellites:
 
 # Atrribute matching config
 attr_names_threshold: 2
-cosine_threshold: 0.7
+cosine_threshold: 0.9
 
 # User-level config
 model: Candidate
