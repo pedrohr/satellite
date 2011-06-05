@@ -175,6 +175,9 @@ class Teleporter
         mapping[k] = default
         freq_vectors.delete(k)
         info.delete(default)
+
+        hard_links.merge!({k=>default})
+        hlinks_changed = true
       else
         info.each_pair do |ik, iv|
           if Text::Levenshtein::distance(k,ik) <= @@config["attr_names_threshold"]
@@ -285,7 +288,7 @@ class Teleporter
     end
 
     mapper(params, ip).each_pair do |k,v|
-      convert[k] = params[v]
+      convert[k] = params[v] unless params[v].nil?
     end
 
     return convert
@@ -301,6 +304,9 @@ module Teleport
     @tuple = model.find(:first, :conditions => {:__key => params["__key"]})
     
     unless @tuple == nil
+      pp "-------------------------"
+      pp Teleporter.convert_update(params["update"], request.env["REMOTE_ADDR"])
+      pp "-------------------------"
       Teleporter.convert_update(params["update"], request.env["REMOTE_ADDR"]).each do |k,v|
         @tuple[k] = v
       end
